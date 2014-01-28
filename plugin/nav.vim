@@ -20,8 +20,9 @@ let helpmsg="\n\\CWelcome to Textabyss v1.2!\n
 \\n    hjklyubn  - move along small grid (HJKLYUBN for big grid)
 \\n    r         - redraw
 \\n    .         - Snap to big grid
+\\n    ^H^J^K^L^Y^U^B^N - jump to edges and corners of current big grid
 \\n    D A E     - Delete split / Append split / Edit split settings
-\\n    ^X        - Delete hidden buffers (say, if too many are loaded from panning)
+\\n    ^X        - Delete hidden buffers (eg, if too many are loaded from panning)
 \\nSmall gridlines are at every split and lines divisible by ".s:sgridL." while big gridlines are at splits divisible by ".s:bgridS." and lines divisible by ".s:bgridL.".\n
 \\nYou can also press 'o' (after pressing ".g:txb_key.") to enter a map:
 \\n    o         - 'Open grid' (map mode)
@@ -49,13 +50,19 @@ cal input(s:FormatPar(helpmsg,width,(&columns-width)/2))
 elseif input==?'c'
 let helpmsg="\n\n\\CChangelog\n
 \\n1.2.2 - Minor bug where the rightmost split will overshift on PanRight
-\\n1.2.3 - FormatPar for help dialogs now has option to align right"
+\\n1.2.3 - FormatPar for help dialogs now has option to align right
+\\n1.2.4 - Minor bug with map when horizontal block size divides columns
+\\n1.2.5 - Cursor behaves more predictably (Curor won't move on panning / clicking without dragging relocates cursor)
+\\n1.2.5 - Echo confirmation for various commands
+\\n1.2.6 - Ctrl-YUBNHJKL jumps to grid corners
+\\n1.2.7 - Minor updates to grid corners
+\\n"
 cal input(s:FormatPar(helpmsg,width,(&columns-width)/2))
 en
 endfun
 
-nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe exists('t:txb')? 'call TXBmouseNav()' : 'call TXBmousePanWin()'\|exe "keepj norm! \<lt>leftmouse>"<cr>
-exe 'nn <silent> '.txb_key.' :if exists("t:txb") \| call TXBcmd() \| else \| call TXBstart()\| en<cr>'
+nn <silent> <leftmouse> :exe TXBmouse{exists('t:txb')? "Nav" : "PanWin"}()? "keepj norm! \<lt>leftmouse>" : ""<cr>
+exe 'nn <silent> '.txb_key.' :call TXB{exists("t:txb")? "cmd" : "start"}()<cr>'
 let TXB_PREVPAT=exists('TXB_PREVPAT')? TXB_PREVPAT : ''
 let TXBcmds={}
 
@@ -90,7 +97,7 @@ fun! s:PrintMapDisp(disp,r,c)
 	echon a:disp.str[ticker :]
 endfun
 fun! s:NavigateMap(array,c_ini,r_ini)
-	let [msg,settings,&ch,&more,r,c,rows,cols,pad,continue,redr]=['',[&ch,&more],&lines-1,0,a:r_ini,a:c_ini,(&lines-1)/s:bksizes[t:txb.zoom][0],&columns/s:bksizes[t:txb.zoom][1],repeat("\n",(&lines-1)%s:bksizes[t:txb.zoom][0]).' ',1,1]
+	let [msg,settings,&ch,&more,r,c,rows,cols,pad,continue,redr]=['',[&ch,&more],&lines-1,0,a:r_ini,a:c_ini,(&lines-1)/s:bksizes[t:txb.zoom][0],(&columns-1)/s:bksizes[t:txb.zoom][1],repeat("\n",(&lines-1)%s:bksizes[t:txb.zoom][0]).' ',1,1]
 	let [roff,coff]=[max([r-rows/2,0]),max([c-cols/2,0])]
 	while continue
 		let [roffn,coffn]=[r<roff? r : r>=roff+rows? r-rows+1 : roff,c<coff? c : c>=coff+cols? c-cols+1 : coff]
@@ -133,7 +140,7 @@ let s:mapdict.45='let t:txb.zoom=max([t:txb.zoom-1,0])|let [redr,rows,cols,pad]=
 let s:mapdict.95=s:mapdict.45
 let s:mapdict.73='if c<len(a:array)|call insert(a:array,[],c)|let redr=1|let msg=" Col ".c." inserted"|en'
 let s:mapdict.68='if c<len(a:array) && input("Really delete column? (y/n)")==?"y"|call remove(a:array,c)|let redr=1|let msg=" Col ".c." deleted"|en'
-let TXBcmds.111='let grid=s:GetGrid()|cal s:NavigateMap(t:txb.map,grid[0],grid[1])|let continue=0'
+	let TXBcmds.111='let grid=s:GetGrid()|cal s:NavigateMap(t:txb.map,grid[0],grid[1])|let continue=0'
 
 fun! DeleteHiddenBuffers()
 	let tpbl=[]
@@ -142,7 +149,7 @@ fun! DeleteHiddenBuffers()
 		silent execute 'bwipeout' buf
 	endfor
 endfun
-let TXBcmds.24='cal DeleteHiddenBuffers()|let continue=0'
+	let TXBcmds.24='cal DeleteHiddenBuffers()|let [msg,continue]=["Hidden Buffers Deleted",0]'
 
 fun! s:FormatPar(str,w,pad)
 	let [pars,pad,bigpad,spc]=[split(a:str,"\n",1),repeat(" ",a:pad),repeat(" ",a:w+10),repeat(' ',len(&brk))]
@@ -297,6 +304,62 @@ let s:Ym1='let y=max([1,y%s:bgridL? y-y%s:bgridL : y-y%s:bgridL-s:bgridL])|'
 	let TXBcmds.78=s:Y1.'cal s:BlockPan('.s:DX1.',y,1)'
 unlet s:DX1 s:DXm1 s:Y1 s:Ym1
 
+fun! s:GridCorners(dx,dy)
+	if a:dy<0
+		let cursory=max([line('.')/s:bgridL*s:bgridL,1])
+		let desty=min([cursory,line('w0')])
+	elseif a:dy>0
+		let cursory=line('.')/s:bgridL*s:bgridL+s:bgridL-1
+		let desty=max([cursory-winheight(0),line('w0')])
+	else
+		let cursory=line('.')/s:bgridL*s:bgridL+s:bgridL/2
+		let desty=cursory>=line('.')? max([cursory-winheight(0),line('w0')]) : min([cursory,line('w0')])
+	en
+	let ix=get(t:txb.ix,expand('%'),-1)
+	if ix==-1 | return 300 | en
+	if a:dx<0
+ 		let destix=ix/s:bgridS*s:bgridS
+		let eval='"norm! '.cursory.'G0"'
+	elseif a:dx>0
+		let destix=min([ix/s:bgridS*s:bgridS+s:bgridS-1,t:txb.len-1])
+		let eval='"norm! '.cursory.'Gg$"'
+	else
+    	let destix=min([ix-ix%s:bgridS+s:bgridS/2,t:txb.len-1])
+		let eval='"norm! '.cursory.'G".(winwidth(0)/2)."|"'
+	en
+	if destix<ix || destix==ix && winnr()==1
+		if winnr()-ix+destix==1 && winwidth(1)<t:txb.size[destix]
+		   	call s:BlockPan(-1,desty)
+		elseif winnr()<=ix-destix
+			call s:BlockPan(destix,desty,-1)
+		en
+	elseif destix>ix || destix==ix && winnr()==winnr('$')
+   		while t:txb.ix[bufname(winbufnr(winnr('$')))]<destix
+   			call s:PanRight(s:pansteph)
+   		endwhile
+		let win=bufwinnr(bufnr(t:txb.name[destix]))
+   		exe win==-1? 'return 200' : win."wincmd w"
+		if winnr()==winnr('$') && winwidth(0)<t:txb.size[destix]
+			while t:txb.size[destix]-winwidth(winnr('$'))>s:pansteph
+				call s:PanRight(s:pansteph)
+			endwhile
+			call s:PanRight(t:txb.size[destix]-winwidth(winnr('$')))
+		en
+		exe 'norm! '.desty.'zt'
+	en
+	let win=bufwinnr(bufnr(t:txb.name[destix]))
+	exe win==-1? 'return 100' : win."wincmd w"
+	exe eval(eval)
+endfun
+	let TXBcmds.25='let [continue,restorepos]=[0,0]|cal s:GridCorners(-1,-1)'
+	let TXBcmds.21='let [continue,restorepos]=[0,0]|cal s:GridCorners(1,-1)'
+	let TXBcmds.2 ='let [continue,restorepos]=[0,0]|cal s:GridCorners(-1,1)'
+	let TXBcmds.14='let [continue,restorepos]=[0,0]|cal s:GridCorners(1,1)'
+	let TXBcmds.8 ='let [continue,restorepos]=[0,0]|cal s:GridCorners(-1,0)'
+	let TXBcmds.12='let [continue,restorepos]=[0,0]|cal s:GridCorners(1,0)'
+	let TXBcmds.10='let [continue,restorepos]=[0,0]|cal s:GridCorners(0,1)'
+	let TXBcmds.11='let [continue,restorepos]=[0,0]|cal s:GridCorners(0,-1)'
+
 fun! s:GetGrid()
 	let [ix,l0]=[t:txb.ix[bufname(winbufnr(1))],line('w0')]
 	let [sd,dir]=(ix%s:bgridS>s:bgridS/2 && ix+s:bgridS-ix%s:bgridS<t:txb.len-1)? [ix+s:bgridS-ix%s:bgridS,1] : [ix-ix%s:bgridS,-1]
@@ -307,11 +370,12 @@ fun! s:SnapToGrid()
 	let [sd,dir]=(ix%s:bgridS>s:bgridS/2 && ix+s:bgridS-ix%s:bgridS<t:txb.len-1)? [ix+s:bgridS-ix%s:bgridS,1] : [ix-ix%s:bgridS,-1]
 	call s:BlockPan(sd,l0%s:bgridL>s:bgridL/2? l0+s:bgridL-l0%s:bgridL : l0-l0%s:bgridL,dir)
 endfun
-let TXBcmds.46='call s:SnapToGrid()|let continue=0'
+	let TXBcmds.46='call s:SnapToGrid()|let continue=0'
 
 fun! TXBcmd(...)
 	let [y,continue,msg]=[line('w0'),1,'']
-	let pos=[winnr(),winline(),wincol()]
+	let possav=[bufnr('%')]+getpos('.')[1:]
+	let restorepos=1
 	if a:0 | exe get(g:TXBcmds,a:1,'let msg="Press f1 for help"') | en
 	while continue
 		let s0=t:txb.ix[bufname(winbufnr(1))]
@@ -320,37 +384,38 @@ fun! TXBcmd(...)
 		exe get(g:TXBcmds,c,'let msg="Press f1 for help"')
 	endwhile
     let s0=t:txb.ix[bufname(winbufnr(1))]
-	exe pos[0].'wincmd w'
-	call setpos('.',[0,line('w0')+pos[1],min([pos[2],winwidth(0)]),0])
-	redr|ec join(map(s0+winnr('$')>t:txb.len-1? range(s0,t:txb.len-1)+range(0,s0+winnr('$')-t:txb.len) : range(s0,s0+winnr('$')-1),'!v:key || !(v:val%s:bgridS)? t:txb.gridnames[v:val/s:bgridS] : "."')).' _ '.join(map(range(line('w0'),line('w$'),s:sgridL),'!v:key || v:val%(s:bgridL)<s:sgridL? v:val/s:bgridL : "."'))
+	if restorepos
+		call s:RestorePos(possav)
+	en
+	redr|ec empty(msg)? join(map(s0+winnr('$')>t:txb.len-1? range(s0,t:txb.len-1)+range(0,s0+winnr('$')-t:txb.len) : range(s0,s0+winnr('$')-1),'!v:key || !(v:val%s:bgridS)? t:txb.gridnames[v:val/s:bgridS] : "."')).' _ '.join(map(range(line('w0'),line('w$'),s:sgridL),'!v:key || v:val%(s:bgridL)<s:sgridL? v:val/s:bgridL : "."')) : msg
 endfun
-let TXBcmds.68="redr
-\\n	let confirm=input(' < Really delete current column (y/n)? ')
-\\n	if confirm==?'y'
-\\n		let ix=get(t:txb.ix,expand('%'),-1)
-\\n		if ix!=-1
-\\n			call s:DeleteCol(ix)
-\\n			wincmd W
-\\n			call s:LoadPlane(t:txb)
-\\n			let msg='col '.ix.' removed'
-\\n		else
-\\n			let msg='Current buffer not in plane; deletion failed'
-\\n		en
-\\n	en"
-let TXBcmds.65="let ix=get(t:txb.ix,expand('%'),-1)
-\\n	if ix!=-1
-\\n	    redr
-\\n		let file=input(' < File to append: ',substitute(bufname('%'),'\\d\\+','\\=(\"000000\".(str2nr(submatch(0))+1))[-len(submatch(0)):]',''),'file')
-\\n		if !empty(file)
-\\n			call s:AppendCol(ix,file)
-\\n			call s:LoadPlane(t:txb)
-\\n			let msg='col '.(ix+1).' appended'
-\\n		else
-\\n			let msg='(aborted)'
-\\n		en
-\\n	else
-\\n		let msg='Current buffer not in plane'
-\\n	en"
+let TXBcmds.68="redr\n
+\let confirm=input(' < Really delete current column (y/n)? ')\n
+\if confirm==?'y'\n
+	\let ix=get(t:txb.ix,expand('%'),-1)\n
+	\if ix!=-1\n
+		\call s:DeleteCol(ix)\n
+		\wincmd W\n
+		\call s:LoadPlane(t:txb)\n
+		\let msg='col '.ix.' removed'\n
+	\else\n
+		\let msg='Current buffer not in plane; deletion failed'\n
+	\en\n
+\en"
+let TXBcmds.65="let ix=get(t:txb.ix,expand('%'),-1)\n
+\if ix!=-1\n
+	\redr\n
+	\let file=input(' < File to append (between : ',substitute(bufname('%'),'\\d\\+','\\=(\"000000\".(str2nr(submatch(0))+1))[-len(submatch(0)):]',''),'file')\n
+	\if !empty(file)\n
+		\call s:AppendCol(ix,file)\n
+		\call s:LoadPlane(t:txb)\n
+		\let msg='col '.(ix+1).' appended'\n
+	\else\n
+		\let msg='(aborted)'\n
+	\en\n
+\else\n
+	\let msg='Current buffer not in plane'\n
+\en"
 let TXBcmds.27="let continue=0|redr|ec ''"
 let TXBcmds.114="call s:LoadPlane(t:txb)|redr|ec ' (redrawn)'|let continue=0"
 let TXBcmds["\<leftmouse>"]="call TXBmouseNav()|let y=line('w0')|let continue=0|redr"
@@ -573,22 +638,30 @@ fun! s:LoadPlane(...)
 endfun
 
 let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')
-if !exists('g:opt_device') "for compatibility
-	let opt_device=''
-en
 fun! TXBmousePanWin()
+	let possav=[bufnr('%')]+getpos('.')[1:]
+	call feedkeys("\<leftmouse>")
+	call getchar()
+	exe v:mouse_win."wincmd w"
 	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
 		return 1 | en
 	exe "norm! \<leftmouse>"
+	redr!
 	let [veon,fr,tl,v]=[&ve==?'all',-1,repeat([[reltime(),0,0]],4),winsaveview()]
-	let [v.col,v.coladd,redrexpr]=[0,v:mouse_col-1,(g:opt_device==?'droid4' && veon)? 'redr!':'redr']
-	while getchar()=="\<leftdrag>"
-		let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), veon? min([v:mouse_col-v.coladd-1,v.leftcol]):0,(fr+1)%4]
-		let [v.topline,v.leftcol,v.lnum,v.coladd,tl[fr]]=[v.topline-dV,v.leftcol-dH,v:mouse_lnum-dV,v:mouse_col-1-dH,[reltime(),dV,dH]]
-		call winrestview(v)
-		exe redrexpr
-	endwhile
+	let [v.col,v.coladd,redrexpr]=[0,v:mouse_col-1,(exists('g:opt_device') && g:opt_device==?'droid4' && veon)? 'redr!':'redr']
+	let c=getchar()
+	if c=="\<leftdrag>"
+		while c=="\<leftdrag>"
+			let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), veon? min([v:mouse_col-v.coladd-1,v.leftcol]):0,(fr+1)%4]
+			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[fr]]=[v.topline-dV,v.leftcol-dH,v:mouse_lnum-dV,v:mouse_col-1-dH,[reltime(),dV,dH]]
+			call winrestview(v)
+			exe redrexpr
+			let c=getchar()
+		endwhile
+	else
+		return 1
+	en
 	if str2float(reltimestr(reltime(tl[(fr+1)%4][0])))<0.2
 		let [glv,glh,vc,hc]=[tl[0][1]+tl[1][1]+tl[2][1]+tl[3][1],tl[0][2]+tl[1][2]+tl[2][2]+tl[3][2],0,0]
 		let [tlx,lnx,glv,lcx,cax,glh]=(glv>3? ['y*v.topline>1','y*v.lnum>1',glv*glv] : glv<-3? ['-(y*v.topline<'.line('$').')','-(y*v.lnum<'.line('$').')',glv*glv] : [0,0,0])+(glh>3? ['x*v.leftcol>0','x*v.coladd>0',glh*glh] : glh<-3? ['-x','-x',glh*glh] : [0,0,0])
@@ -601,41 +674,74 @@ fun! TXBmousePanWin()
 			en
 		endw
 	en
+	exe min([max([line('w0'),possav[1]]),line('w$')])
+	let firstcol=virtcol('.')-wincol()+1
+	let lastcol=firstcol+winwidth(0)-1
+	let possav[3]=min([max([firstcol,possav[2]+possav[3]]),lastcol])
+	exe "norm! ".possav[3]."|"
+endfun
+
+fun! s:RestorePos(possav)
+	let win=bufwinnr(a:possav[0])
+	if win==-1
+		let ix=[get(t:txb.ix,bufname(a:possav[0]),-1),get(t:txb.ix,bufname(''),-1)]
+		if ix[0]!=-1 && ix[1]!=-1
+			if ix[0]>ix[1]
+				wincmd b
+				exe min([max([line('w0'),a:possav[1]]),line('w$')])
+				exe winnr()==1? "" : "norm! 0g$"
+			else
+				wincmd t
+				exe min([max([line('w0'),a:possav[1]]),line('w$')])
+				norm! g0
+			en
+		en
+	else
+		exe win.'wincmd w'
+   		exe min([max([line('w0'),a:possav[1]]),line('w$')])
+		exe winnr()==1? ("norm! ".min([max([virtcol('.')-wincol()+1,a:possav[2]+a:possav[3]]),virtcol('.')-wincol()+winwidth(0)])."|") : ("norm! 0".min([max([1,a:possav[2]+a:possav[3]]),winwidth(0)])."|")
+	en
 endfun
 
 fun! TXBmouseNav()
-	let [c,w0]=[100,-1]
-	while c!="\<leftrelease>"
-		if v:mouse_win!=w0
-			let w0=v:mouse_win
-			exe "norm! \<leftmouse>"
-			if !exists('t:txb')
-				return
-			en
-			let [b0,wrap]=[winbufnr(0),&wrap]
-			let [x,y,offset,ix]=wrap? [wincol(),line('w0')+winline(),0,get(t:txb.ix,bufname(b0),-1)] : [v:mouse_col-(virtcol('.')-wincol()),v:mouse_lnum,virtcol('.')-wincol(),get(t:txb.ix,bufname(b0),-1)]
-			let s0=t:txb.ix[bufname(winbufnr(1))]
-			let ecstr=join(map(s0+winnr('$')>t:txb.len-1? range(s0,t:txb.len-1)+range(0,s0+winnr('$')-t:txb.len) : range(s0,s0+winnr('$')-1),'!v:key || !(v:val%s:bgridS)? t:txb.gridnames[v:val/s:bgridS] : "."'))." ' ".join(map(range(line('w0'),line('w$'),s:sgridL),'!v:key || v:val%(s:bgridL)<s:sgridL? v:val/s:bgridL : "."'))
-		else
-			if wrap
+	let possav=[bufnr('%')]+getpos('.')[1:]
+	let [c,w0]=[getchar(),-1]
+	if c!="\<leftdrag>"
+		return 1
+	else
+		while c!="\<leftrelease>"
+			if v:mouse_win!=w0
+				let w0=v:mouse_win
 				exe "norm! \<leftmouse>"
-				let [nx,l0]=[wincol(),y-winline()]
+				if !exists('t:txb')
+					return
+				en
+				let [b0,wrap]=[winbufnr(0),&wrap]
+				let [x,y,offset,ix]=wrap? [wincol(),line('w0')+winline(),0,get(t:txb.ix,bufname(b0),-1)] : [v:mouse_col-(virtcol('.')-wincol()),v:mouse_lnum,virtcol('.')-wincol(),get(t:txb.ix,bufname(b0),-1)]
+				let s0=t:txb.ix[bufname(winbufnr(1))]
+				let ecstr=join(map(s0+winnr('$')>t:txb.len-1? range(s0,t:txb.len-1)+range(0,s0+winnr('$')-t:txb.len) : range(s0,s0+winnr('$')-1),'!v:key || !(v:val%s:bgridS)? t:txb.gridnames[v:val/s:bgridS] : "."'))." ' ".join(map(range(line('w0'),line('w$'),s:sgridL),'!v:key || v:val%(s:bgridL)<s:sgridL? v:val/s:bgridL : "."'))
 			else
-				let [nx,l0]=[v:mouse_col-offset,line('w0')+y-v:mouse_lnum]
+				if wrap
+					exe "norm! \<leftmouse>"
+					let [nx,l0]=[wincol(),y-winline()]
+				else
+					let [nx,l0]=[v:mouse_col-offset,line('w0')+y-v:mouse_lnum]
+				en
+				let [x,xs]=x && nx? [x,nx>x? -s:PanLeft(nx-x) : s:PanRight(x-nx)] : [x? x : nx,0]
+				exe 'norm! '.bufwinnr(b0)."\<c-w>w".(l0>0? l0 : 1).'zt'
+				let [x,y]=[wrap? v:mouse_win>1? x : nx+xs : x, l0>0? y : y-l0+1]
+				redr
+				ec ecstr
 			en
-			let [x,xs]=x && nx? [x,nx>x? -s:PanLeft(nx-x) : s:PanRight(x-nx)] : [x? x : nx,0]
-			exe 'norm! '.bufwinnr(b0)."\<c-w>w".(l0>0? l0 : 1).'zt'
-			let [x,y]=[wrap? v:mouse_win>1? x : nx+xs : x, l0>0? y : y-l0+1]
-			redr
-			ec ecstr
-		en
-		let c=getchar()
-		while c!="\<leftdrag>" && c!="\<leftrelease>"
 			let c=getchar()
+			while c!="\<leftdrag>" && c!="\<leftrelease>"
+				let c=getchar()
+			endwhile
 		endwhile
-	endwhile
+	en
 	let s0=t:txb.ix[bufname(winbufnr(1))]
 	redr|ec join(map(s0+winnr('$')>t:txb.len-1? range(s0,t:txb.len-1)+range(0,s0+winnr('$')-t:txb.len) : range(s0,s0+winnr('$')-1),'!v:key || !(v:val%s:bgridS)? t:txb.gridnames[v:val/s:bgridS] : "."')).' , '.join(map(range(line('w0'),line('w$'),s:sgridL),'!v:key || v:val%(s:bgridL)<s:sgridL? v:val/s:bgridL : "."'))
+	call s:RestorePos(possav)
 endfun
 
 fun! s:PanLeft(N,...)
