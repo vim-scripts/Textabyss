@@ -12,7 +12,10 @@
 	let s:bgridL=45
 "Mouse panning speed (only works when &ttymouse==xterm2 or sgr)
 	let s:panSpeedMultiplier=2
-"Map default colors
+"Map block default size (press z in map mode to change)
+	let s:mgridH=2
+	let s:mgridW=5
+"Map colors
 	hi! link TXBmapSelection Visual
 	hi! link TXBmapSelectionEmpty Search
 "Explanation of changed settings
@@ -32,7 +35,7 @@ exe 'nn <silent> '.s:hotkeyName.' :if exists("t:txb")\|call TXBdoCmd("ini")\|els
 let TXBmsCmd={}
 let TXBkyCmd={}
 fun! s:printHelp()
-	let helpmsg="\n\\CWelcome to Textabyss v1.3!\n
+	let helpmsg="\n\\CWelcome to Textabyss v1.5!\n
 	\\nPress ".s:hotkeyName." to start. You will be prompted for a file pattern. You can try \"*\" for all files or, say, \"pl*\" for \"pl1\", \"plb\", \"planetary.txt\", etc.. You can also start with a single file and use ".s:hotkeyName."A to append additional splits.\n
 	\\nOnce loaded, use the mouse to pan or press ".s:hotkeyName." followed by:
 	\\nhjklyubn  - pan small grid  (1 split x ".s:sgridL." lines)
@@ -47,7 +50,7 @@ fun! s:printHelp()
 	\\n^X        - Delete hidden buffers (eg, if too many are loaded from panning)\n
 	\\nIf dragging the mouse doesn't pan, try ':set ttymouse=sgr' or ':set ttymouse=xterm2'. Most other modes should work but the panning speed multiplier will be disabled. 'xterm' does not report dragging and will disable mouse panning entirely.\n
 	\\nEnsuring a consistent starting directory is important because relative names are remembered (use ':cd ~/PlaneDir' to switch to that directory beforehand). Ie, a file from the current directory will be remembered as the name only and not the path. Adding files not in the current directory is ok as long as the starting directory is consistent.\n
-	\\nSetting your viminfo to save global variables (:set viminfo+=!) is highly recommended as the plane will be suggested on ".s:hotkeyName." the next time you run vim. You can also manually restore via ':let BACKUP=t:txb' and ':call TXBload(BACKUP)'.\n
+	\\nSetting your viminfo to save global variables (:set viminfo+=!) is recommended as the plane will be suggested on ".s:hotkeyName." the next time you run vim. You can also manually restore via ':let BACKUP=t:txb' and ':call TXBload(BACKUP)'.\n
 	\\nKeyboard commands can be accessed via the TXBdoCmd(key) in order to integrate textabyss into your workflow. For example 'nmap <2-leftmouse> :call TXBdoCmd(\"o\")<cr>' will activate the map with a double-click.\n
 	\\nHorizontal splits aren't supported and may interfere with panning. \n\nPress enter to continue ... (or input 'm' for a monologue, 'c' for changelog)"
 	let width=&columns>80? min([&columns-10,80]) : &columns-2
@@ -58,56 +61,52 @@ fun! s:printHelp()
 		\\n\\CEndless fathoms he fell
 		\\n\\CNe'er in homely hearth to linger
 		\\n\\CNor warm hand to grasp!\"\n\\C~\n
-		\\n    In a time when memory capacity is growing exponentially, memory storage and retrieval, especially when it comes to prose, still seems quite undeveloped. It makes very little sense, to me, to have a massive hard drive when, in terms of text, actual production might be on the order of kilobytes per year. Depending on how prolific you are as a writer, you may have thousands or tens of thousands of pages in mysteriously named folders on old hard drives (say, since 5th grade). So the problem is one of organization, retreival, and accessibility rather than availability of space. There are various efforts in this regard, including desktop indexing and personal wikis. It might not even be a bad idea to simply print out and keep as a hard copy everything written over the course of a month.\n
+		\\n    In a time when memory capacity is growing exponentially, memory storage and retrieval, especially when it comes to prose, still seems quite undeveloped. It makes very little sense, to me, to have a massive hard drive when, in terms of text, actual production might be on the order of kilobytes per year. Depending on how prolific you are as a writer, you may have hundreds or thousands of pages in mysteriously named folders on old hard drives. So the problem is one of organization, retreival, and accessibility rather than availability of space. There are various efforts in this regard, including desktop indexing and personal wikis. It might not even be a bad idea to simply print out and keep as a hard copy everything written over the course of a month.\n
 		\\n    The textabyss is yet another solution to this problem. It presents a plane that one can append to endlessly with very little overhead. It provides means to navigate and, either at the moment of writing or retrospectively, map out. Ideally, you would be able to scan over the map and easily access writings from last night, a month ago, or even 5 to 10 years earlier. It presents some unique advantages over both indexing and hyperlinked or hierarchical organizing.\n
 		\\n    A note about scrollbinding splits of uneven lengths -- I've tried to smooth over this process but occasionally splits will still desync. You can press r to redraw when this happens. Actually, padding, say, 500 or 1000 blank lines to the end of every split would solve this problem with very little overhead. You might then want to remap G (go to end of file) to go to the last non-blank line rather than the very last line.\n
 		\\n\\RThanks for trying out Textabyss!\n\n\\RLeon, q335r49@gmail.com"
 		cal input(s:formatPar(helpmsg,width,(&columns-width)/2))
 	elseif input==?'c'
 		let helpmsg="\n
-		\\n\\CUpcoming:
-		\\n1.5    - Colored maps
+		\\n\\CRoadmap:
+		\\n1.6    - Remove big grid, grid corners, shift entirely to map
+		\\n1.7    - Recompile split to match map
 		\\n\\CChangelog:
+		\\n1.5.1  - Rather severe bug with map coloring
+		\\n1.5.0  - Colored labels
+		\\n1.4.11 - Added mouse gesture (drag to topleft corner) to activate map
+		\\n1.4.10 - Replaced +,- zoom with prompt for block size in map
 		\\n1.4.9  - Better map mode highlighting
-		\\n1.4.8  - garbage inputs for map nav fix
-		\\n1.4.7  - removed map display cell
-		\\n1.4.5  - map label display initial
-		\\n1.4.4  - make sure xterm dragging doesn't interefere with clicking
-		\\n1.4.3  - divide by zero bug in zoomlevel
-		\\n1.4.2  - map drag for ttymouse=xterm
-		\\n1.4.1  - Map panning speed matches zoom speed
+		\\n1.4.7  - Removed map cell display
+		\\n1.4.5  - Map label display
+		\\n1.4.4  - Make sure xterm dragging doesn't interfere with clicking
+		\\n1.4.2  - Map drag for ttymouse=xterm
+		\\n1.4.1  - Map panning speed now 1 to 1
 		\\n1.4.0  - Mouse support for map
 		\\n1.3.17 - Code refactor, reduce global var 'pollution'
-		\\n1.3.16 - Minor bug with map-delete column not redrawing
-		\\n1.3.15 - Removed outdated Edit Split message
-		\\n1.3.14 - Cursor now responds as needed to ttymouse setting without reloading plane
-		\\n1.3.13 - Prevent reloading of split (and subsequent error message if changed)
-		\\n1.3.12 - Safer append column function (check for duplicate, bad file names)
+		\\n1.3.14 - Cursor now responds to ttymouse setting without reloading plane
+		\\n1.3.13 - Prevent reloading of same split (and subsequent error message when changed)
+		\\n1.3.12 - Error checking for append column function (check for duplicate, bad file names)
 		\\n1.3.11 - 'se hidden' to prevent error messages
-		\\n1.3.10 - Support &ttymouse=sgr
-		\\n1.3.9  - Allows drag splits to resize when not in plane
-		\\n1.3.8  - File names can now contain spaces / message about consistent starting directory
+		\\n1.3.10 - Support ttymouse=sgr
+		\\n1.3.9  - Allow drag splits to resize functionality when not in plane
+		\\n1.3.8  - File names can now contain spaces, help message about consistent starting directory
 		\\n1.3.7  - Grid system reworked & simplified, only small grids named
 		\\n1.3.6  - Map now corresponds to single split, not big grid splits
 		\\n1.3.5  - Monologue changed to focus on intention
 		\\n1.3.4  - Help message added to map, map supports cut / paste
 		\\n1.3.1  - Cursor remains visible during global hotkey. Known issue: bug in vim (fixed: 7.4.169) misdisplays cursor when using grid corner commands.
-		\\n1.3.0  - When &ttymouse==xterm2, new mousepanning method that uses raw keycodes and allows for accelerated motions
-		\\n1.2.8  - Snap to grid now snaps to the grid the cursor is currently in (and not the one that occupies the majority of the screen)
-		\\n1.2.7  - Minor updates to grid corners
-		\\n1.2.6  - Feature: Ctrl-YUBNHJKL jumps to grid corners
-		\\n1.2.5  - Echo confirmation for various commands
-		\\n1.2.5  - Curor won't move on panning. Clicking without dragging relocates cursor
-		\\n1.2.4  - Minor bug with map when horizontal block size divides columns
-		\\n1.2.3  - formatPar for help dialogs now has option to align right
-		\\n1.2.2  - Minor bug where the rightmost split will overshift on PanRight\n"
+		\\n1.3.0  - new mousepanning method that uses raw keycodes and allows for accelerated motions for ttymouse=xterm2
+		\\n1.2.8  - Snap to grid now snaps to the grid the cursor is currently in and not the one that occupies the majority of the screen
+		\\n1.2.6  - Ctrl-YUBNHJKL jumps to grid corners
+		\\n1.2.5  - Cursor won't move while panning\n"
 		cal input(s:formatPar(helpmsg,width,(&columns-width)/2))
 	en
 endfun
 
 let TXB_PREVPAT=exists('TXB_PREVPAT')? TXB_PREVPAT : ''
 
-fun! s:initDragXterm() "Placeholder; not supported
+fun! s:initDragXterm() "Placeholder; xterm not supported
 	return "norm! \<leftmouse>"
 endfun
 let TXBmsCmd.xterm=function("s:initDragXterm")
@@ -227,6 +226,7 @@ fun! <SID>doDragSGR()
 		let k=[32,0,0]
 	elseif k[0]==0
 		nunmap <esc>[<
+        if k[1:]==[1,1] | call TXBdoCmd('o') | en
 	elseif k[1] && k[2] && s:prevCoord[1] && s:prevCoord[2]
 		call s:dragHandler(k[1]-s:prevCoord[1],k[2]-s:prevCoord[2])
 	en
@@ -261,6 +261,7 @@ fun! <SID>doDragXterm2()
 	endwhile
 	if k[0]==35
 		nunmap <esc>[M
+        if k[1:]==[33,33] | call TXBdoCmd('o') | en
 	elseif k[1] && k[2] && s:prevCoord[1] && s:prevCoord[2]
 		call s:dragHandler(k[1]-s:prevCoord[1],k[2]-s:prevCoord[2])
 	en
@@ -273,7 +274,7 @@ fun! s:panWin(dx,dy)
 	exe "norm! ".(a:dy>0? s:panSpeedMultiplier*get(s:panstep,a:dy,16)."\<c-y>" : a:dy<0? s:panSpeedMultiplier*get(s:panstep,-a:dy,16)."\<c-e>" : '').(a:dx>0? (a:dx."zh") : a:dx<0? (-a:dx)."zl" : "g")
 endfun
 fun! s:navPlane(dx,dy)
-	let possav=s:saveCursPos()
+	let possav=[bufnr('%')]+getpos('.')[1:]
 	if a:dx>0
 		call s:PanLeft(s:panSpeedMultiplier*get(s:panstep,a:dx,16))
 	elseif a:dx<0
@@ -298,189 +299,279 @@ fun! s:getGridNames(len)
 	en
 endfun
 
-let s:bksizes=[0,[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7],[8,8],[9,9]]
-let TXBkyCmd.o='let s:cmdS.continue=0|let grid=s:getMapGrid()|cal s:navMap(t:txb.map,grid[0],grid[1])'
+let TXBkyCmd.o='let s:cmdS.continue=0|cal s:navMap(t:txb.map,t:txb.ix[expand("%")],line(".")/s:bgridL)'
 let s:pad=repeat(' ',300)
 fun! s:getMapDisp(map,w,h,H)          
-	let hlist_prototype=repeat([''],a:h)
 	let mapl=len(a:map)
+	let s:disp__r=mapl*a:w+1
+	let l=s:disp__r*a:h
+	let templist=repeat([''],a:h)
+	let last_entry_colored=copy(templist)
+	let s:disp__selmap=map(range(a:H),'repeat([0],mapl)')
 	let strarray=[]
-	let l=(len(a:map)*a:w+1)*a:h
-	let r=len(a:map)*a:w+1
-	let selmap=map(range(a:H),'repeat([0],mapl)')
+	let s:disp__color=[]
+	let s:disp__colorv=[]
+	let extend_colors='call extend(s:disp__color,'.join(map(templist,'"colorix[".v:key."]"'),'+').')'
+	let extend_colorv='call extend(s:disp__colorv,'.join(map(templist,'"colorvix[".v:key."]"'),'+').')'
+	let let_colorix='let colorix=['.join(map(templist,'"[]"'),',').']'
+	let let_colorvix='let colorvix=['.join(map(templist,'"[]"'),',').']'
+	let let_occ='let occ=['.repeat("'',",a:h)[:-2].']'
 	for i in range(a:H)
-		let occ=copy(hlist_prototype)
+		exe let_occ
+		exe let_colorix
+		exe let_colorvix
 		for j in range(mapl)
-			if !empty(a:map[j][i])
-				for k in range(a:h)
-					if len(occ[k])<(j+1)*a:w
-						let [selmap[i][j],occ[k]]=len(occ[k])<j*a:w? [[i*l+k*r+j*a:w,len(a:map[j][i])],occ[k].s:pad[:j*a:w-len(occ[k])-1].a:map[j][i]] : [[i*l+k*r+j*a:w+(len(occ[k])%a:w),len(a:map[j][i])],occ[k].a:map[j][i]]
-						break
-					en
-				endfor
-				if empty(selmap[i][j])
-					let k=min(map(copy(hlist_prototype),'len(occ[v:key])*30+v:key'))%30
-					let occ[k]=occ[k][:j*a:w+a:w-2].a:map[j][i]
-					let selmap[i][j]=[i*l+k*r+j*a:w,len(a:map[j][i])]
+			if empty(a:map[j][i])
+				let s:disp__selmap[i][j]=[i*l+j*a:w,0]
+				continue
+			en
+			let k=0
+			let cell_border=(j+1)*a:w
+			while k<a:h && len(occ[k])>=cell_border
+				let k+=1
+			endw
+			let parsed=split(a:map[j][i],'#')
+			if k==a:h
+				let k=min(map(templist,'len(occ[v:key])*30+v:key'))%30
+				if last_entry_colored[k]
+	                let colorix[k][-1]-=len(occ[k])-(cell_border-1)
 				en
+				let occ[k]=occ[k][:cell_border-2].parsed[0]
+				let s:disp__selmap[i][j]=[i*l+k*s:disp__r+cell_border-1,len(parsed[0])]
 			else
-				let selmap[i][j]=[i*l+j*a:w,0]
+				let [s:disp__selmap[i][j],occ[k]]=len(occ[k])<j*a:w? [[i*l+k*s:disp__r+j*a:w,1],occ[k].s:pad[:j*a:w-len(occ[k])-1].parsed[0]] : [[i*l+k*s:disp__r+j*a:w+(len(occ[k])%a:w),1],occ[k].parsed[0]]
+			en
+			if len(parsed)>1
+				call extend(colorix[k],[s:disp__selmap[i][j][0],s:disp__selmap[i][j][0]+len(parsed[0])])
+				call extend(colorvix[k],['echoh NONE','echoh '.parsed[1]])
+				let last_entry_colored[k]=1
+			else
+				let last_entry_colored[k]=0
 			en
 		endfor
+		exe extend_colors
+		exe extend_colorv
 		let strarray+=map(occ,'len(v:val)<mapl*a:w? v:val.s:pad[:mapl*a:w-len(v:val)-1]."\n" : v:val[:mapl*a:w-1]."\n"')
 	endfor
-	return {'str':join(strarray,''),'hlmap':selmap,'w':(a:w),'r':r}
+	let s:disp__str=join(strarray,'')
+    let s:disp__w=a:w
+	call add(s:disp__color,99999)
+	call add(s:disp__colorv,'echoh NONE')
 endfun
+
 fun! s:printMapDisp()
+	let [sel,notempty]=s:disp__selmap[s:ms__r-s:ms__roff][s:ms__c-s:ms__coff]
+	let colorl=len(s:disp__color)
+	let p=0
 	redr!
-	let [i,len]=s:ms.disp.hlmap[s:ms.r-s:ms.roff][s:ms.c-s:ms.coff]
-	echon i? s:ms.disp.str[0 : i-1] : ''
-	if len
-		let len=(i+len)%s:ms.disp.r<i%s:ms.disp.r? len-(i+len)%s:ms.disp.r : len
+	if sel
+		if sel>s:disp__color[0]
+			if s:disp__color[0]
+       			exe s:disp__colorv[0]
+				echon s:disp__str[0 : s:disp__color[0]-1]
+			en
+			let p=1
+			while sel>s:disp__color[p]
+				exe s:disp__colorv[p]
+				echon s:disp__str[s:disp__color[p-1] : s:disp__color[p]-1]
+				let p+=1
+			endwhile
+			exe s:disp__colorv[p]
+			echon s:disp__str[s:disp__color[p-1]:sel-1]
+		else
+   		 	exe s:disp__colorv[0]
+			echon s:disp__str[:sel-1]
+		en
+	en
+	if notempty
+		let endmark=len(s:ms__array[s:ms__c][s:ms__r])
+		let endmark=(sel+endmark)%s:disp__r<sel%s:disp__r? endmark-(sel+endmark)%s:disp__r-1 : endmark
 		echohl TXBmapSelection
-		echon s:ms.array[s:ms.c][s:ms.r][:len]
+		echon s:ms__array[s:ms__c][s:ms__r][:endmark-1]
+		let endmark=sel+endmark
 	else
-		let len=s:ms.disp.w
+		let endmark=sel+s:disp__w
 		echohl TXBmapSelectionEmpty
-		echon s:ms.disp.str[i : i+len-1]
+		echon s:disp__str[sel : endmark-1]
+	en
+    while s:disp__color[p]<endmark
+		let p+=1
+	endwhile
+	exe s:disp__colorv[p]
+	echon s:disp__str[endmark :s:disp__color[p]-1]
+	for p in range(p+1,colorl-1)
+		exe s:disp__colorv[p]
+		echon s:disp__str[s:disp__color[p-1] : s:disp__color[p]-1]
+	endfor
+	echon get(t:txb.gridnames,s:ms__c,'--') s:ms__r s:ms__msg
+	let s:ms__msg=''
+endfun
+fun! s:printMapDispNoHL()
+	redr!
+	let [i,len]=s:disp__selmap[s:ms__r-s:ms__roff][s:ms__c-s:ms__coff]
+	echon i? s:disp__str[0 : i-1] : ''
+	if len
+		let len=len(s:ms__array[s:ms__c][s:ms__r])
+		let len=(i+len)%s:disp__r<i%s:disp__r? len-(i+len)%s:disp__r-1 : len
+		echohl TXBmapSelection
+		echon s:ms__array[s:ms__c][s:ms__r][:len]
+	else
+		let len=s:disp__w
+		echohl TXBmapSelectionEmpty
+		echon s:disp__str[i : i+len-1]
 	en
 	echohl NONE
-	echon s:ms.disp.str[i+len :] get(t:txb.gridnames,s:ms.c,'--') s:ms.r s:ms.msg
-	let s:ms.msg=''
+	echon s:disp__str[i+len :] get(t:txb.gridnames,s:ms__c,'--') s:ms__r s:ms__msg
+	let s:ms__msg=''
 endfun
+
 fun! s:navMapKeyHandler(c)
 	if a:c is -1
 		if g:TXBmsmsg[0]==1
-			let s:ms.prevcoord=copy(g:TXBmsmsg)
+			let s:ms__prevcoord=copy(g:TXBmsmsg)
 		elseif g:TXBmsmsg[0]==2
-			if s:ms.prevcoord[1] && s:ms.prevcoord[2] && g:TXBmsmsg[1] && g:TXBmsmsg[2]
-        		let [s:ms.roff,s:ms.coff,s:ms.redr]=[max([0,s:ms.roff-(g:TXBmsmsg[2]-s:ms.prevcoord[2])/t:txb.zoom]),max([0,s:ms.coff-(g:TXBmsmsg[1]-s:ms.prevcoord[1])/t:txb.zoom]),0]
-				let [s:ms.r,s:ms.c]=[s:ms.r<s:ms.roff? s:ms.roff : s:ms.r>=s:ms.roff+s:ms.rows? s:ms.roff+s:ms.rows-1 : s:ms.r,s:ms.c<s:ms.coff? s:ms.coff : s:ms.c>=s:ms.coff+s:ms.cols? s:ms.coff+s:ms.cols-1 : s:ms.c]
-				let s:ms.disp=s:getMapDisp(map(range(s:ms.coff,s:ms.coff+s:ms.cols-1),'map(range(s:ms.roff,s:ms.roff+s:ms.rows-1),"exists(\"s:ms.array[".v:val."][v:val]\")? s:ms.array[".v:val."][v:val] : \"\"")'),s:bksizes[t:txb.zoom][1],s:bksizes[t:txb.zoom][0],s:ms.rows)
-				call s:printMapDisp()
+			if s:ms__prevcoord[1] && s:ms__prevcoord[2] && g:TXBmsmsg[1] && g:TXBmsmsg[2]
+        		let [s:ms__roff,s:ms__coff,s:ms__redr]=[max([0,s:ms__roff-(g:TXBmsmsg[2]-s:ms__prevcoord[2])/s:mgridH]),max([0,s:ms__coff-(g:TXBmsmsg[1]-s:ms__prevcoord[1])/s:mgridW]),0]
+				let [s:ms__r,s:ms__c]=[s:ms__r<s:ms__roff? s:ms__roff : s:ms__r>=s:ms__roff+s:ms__rows? s:ms__roff+s:ms__rows-1 : s:ms__r,s:ms__c<s:ms__coff? s:ms__coff : s:ms__c>=s:ms__coff+s:ms__cols? s:ms__coff+s:ms__cols-1 : s:ms__c]
+				call s:getMapDisp(map(range(s:ms__coff,s:ms__coff+s:ms__cols-1),'map(range(s:ms__roff,s:ms__roff+s:ms__rows-1),"exists(\"s:ms__array[".v:val."][v:val]\")? s:ms__array[".v:val."][v:val] : \"\"")'),s:mgridW,s:mgridH,s:ms__rows)
+				call s:ms__displayfunc()
 			en
-			let s:ms.prevcoord=[g:TXBmsmsg[0],g:TXBmsmsg[1]-(g:TXBmsmsg[1]-s:ms.prevcoord[1])%t:txb.zoom,g:TXBmsmsg[2]-(g:TXBmsmsg[2]-s:ms.prevcoord[2])%t:txb.zoom]
+			let s:ms__prevcoord=[g:TXBmsmsg[0],g:TXBmsmsg[1]-(g:TXBmsmsg[1]-s:ms__prevcoord[1])%s:mgridW,g:TXBmsmsg[2]-(g:TXBmsmsg[2]-s:ms__prevcoord[2])%s:mgridH]
 		elseif g:TXBmsmsg[0]==3
 			if g:TXBmsmsg==[3,1,1]
-				let [&ch,&more,&ls,&stal]=s:ms.settings
+				let [&ch,&more,&ls,&stal]=s:ms__settings
 				return
-			elseif s:ms.prevcoord[0]==1
-				if &ttymouse=='xterm' && s:ms.prevcoord[1]!=g:TXBmsmsg[1] && s:ms.prevcoord[2]!=g:TXBmsmsg[2] 
-					if s:ms.prevcoord[1] && s:ms.prevcoord[2] && g:TXBmsmsg[1] && g:TXBmsmsg[2]
-						let [s:ms.roff,s:ms.coff,s:ms.redr]=[max([0,s:ms.roff-(g:TXBmsmsg[2]-s:ms.prevcoord[2])/t:txb.zoom]),max([0,s:ms.coff-(g:TXBmsmsg[1]-s:ms.prevcoord[1])/t:txb.zoom]),0]
-						let [s:ms.r,s:ms.c]=[s:ms.r<s:ms.roff? s:ms.roff : s:ms.r>=s:ms.roff+s:ms.rows? s:ms.roff+s:ms.rows-1 : s:ms.r,s:ms.c<s:ms.coff? s:ms.coff : s:ms.c>=s:ms.coff+s:ms.cols? s:ms.coff+s:ms.cols-1 : s:ms.c]
-						let s:ms.disp=s:getMapDisp(map(range(s:ms.coff,s:ms.coff+s:ms.cols-1),'map(range(s:ms.roff,s:ms.roff+s:ms.rows-1),"exists(\"s:ms.array[".v:val."][v:val]\")? s:ms.array[".v:val."][v:val] : \"\"")'),s:bksizes[t:txb.zoom][1],s:bksizes[t:txb.zoom][0],s:ms.rows)
-						call s:printMapDisp()
+			elseif s:ms__prevcoord[0]==1
+				if &ttymouse=='xterm' && s:ms__prevcoord[1]!=g:TXBmsmsg[1] && s:ms__prevcoord[2]!=g:TXBmsmsg[2] 
+					if s:ms__prevcoord[1] && s:ms__prevcoord[2] && g:TXBmsmsg[1] && g:TXBmsmsg[2]
+						let [s:ms__roff,s:ms__coff,s:ms__redr]=[max([0,s:ms__roff-(g:TXBmsmsg[2]-s:ms__prevcoord[2])/s:mgridH]),max([0,s:ms__coff-(g:TXBmsmsg[1]-s:ms__prevcoord[1])/s:mgridW]),0]
+						let [s:ms__r,s:ms__c]=[s:ms__r<s:ms__roff? s:ms__roff : s:ms__r>=s:ms__roff+s:ms__rows? s:ms__roff+s:ms__rows-1 : s:ms__r,s:ms__c<s:ms__coff? s:ms__coff : s:ms__c>=s:ms__coff+s:ms__cols? s:ms__coff+s:ms__cols-1 : s:ms__c]
+						call s:getMapDisp(map(range(s:ms__coff,s:ms__coff+s:ms__cols-1),'map(range(s:ms__roff,s:ms__roff+s:ms__rows-1),"exists(\"s:ms__array[".v:val."][v:val]\")? s:ms__array[".v:val."][v:val] : \"\"")'),s:mgridW,s:mgridH,s:ms__rows)
+						call s:ms__displayfunc()
 					en
-					let s:ms.prevcoord=[g:TXBmsmsg[0],g:TXBmsmsg[1]-(g:TXBmsmsg[1]-s:ms.prevcoord[1])%t:txb.zoom,g:TXBmsmsg[2]-(g:TXBmsmsg[2]-s:ms.prevcoord[2])%t:txb.zoom]
+					let s:ms__prevcoord=[g:TXBmsmsg[0],g:TXBmsmsg[1]-(g:TXBmsmsg[1]-s:ms__prevcoord[1])%s:mgridW,g:TXBmsmsg[2]-(g:TXBmsmsg[2]-s:ms__prevcoord[2])%s:mgridH]
 				else
-					let s:ms.r=(g:TXBmsmsg[2]-&lines+&ch-1)/s:bksizes[t:txb.zoom][0]+s:ms.roff
-					let s:ms.c=(g:TXBmsmsg[1]-1)/s:bksizes[t:txb.zoom][1]+s:ms.coff
-					if [s:ms.r,s:ms.c]==s:ms.prevclick
-						let [&ch,&more,&ls,&stal]=s:ms.settings
-						cal s:gotoPos(s:ms.c,s:bgridL*s:ms.r)
+					let s:ms__r=(g:TXBmsmsg[2]-&lines+&ch-1)/s:mgridH+s:ms__roff
+					let s:ms__c=(g:TXBmsmsg[1]-1)/s:mgridW+s:ms__coff
+					if [s:ms__r,s:ms__c]==s:ms__prevclick
+						let [&ch,&more,&ls,&stal]=s:ms__settings
+						cal s:gotoPos(s:ms__c,s:bgridL*s:ms__r)
 						return
 					en
-					let s:ms.prevclick=[s:ms.r,s:ms.c]
-					let s:ms.prevcoord=[0,0,0]
-					let [roffn,coffn]=[s:ms.r<s:ms.roff? s:ms.r : s:ms.r>=s:ms.roff+s:ms.rows? s:ms.r-s:ms.rows+1 : s:ms.roff,s:ms.c<s:ms.coff? s:ms.c : s:ms.c>=s:ms.coff+s:ms.cols? s:ms.c-s:ms.cols+1 : s:ms.coff]
-					if [s:ms.roff,s:ms.coff]!=[roffn,coffn] || s:ms.redr
-						let [s:ms.roff,s:ms.coff,s:ms.redr]=[roffn,coffn,0]
-						let s:ms.disp=s:getMapDisp(map(range(s:ms.coff,s:ms.coff+s:ms.cols-1),'map(range(s:ms.roff,s:ms.roff+s:ms.rows-1),"exists(\"s:ms.array[".v:val."][v:val]\")? s:ms.array[".v:val."][v:val] : \"\"")'),s:bksizes[t:txb.zoom][1],s:bksizes[t:txb.zoom][0],s:ms.rows)
+					let s:ms__prevclick=[s:ms__r,s:ms__c]
+					let s:ms__prevcoord=[0,0,0]
+					let [roffn,coffn]=[s:ms__r<s:ms__roff? s:ms__r : s:ms__r>=s:ms__roff+s:ms__rows? s:ms__r-s:ms__rows+1 : s:ms__roff,s:ms__c<s:ms__coff? s:ms__c : s:ms__c>=s:ms__coff+s:ms__cols? s:ms__c-s:ms__cols+1 : s:ms__coff]
+					if [s:ms__roff,s:ms__coff]!=[roffn,coffn] || s:ms__redr
+						let [s:ms__roff,s:ms__coff,s:ms__redr]=[roffn,coffn,0]
+						call s:getMapDisp(map(range(s:ms__coff,s:ms__coff+s:ms__cols-1),'map(range(s:ms__roff,s:ms__roff+s:ms__rows-1),"exists(\"s:ms__array[".v:val."][v:val]\")? s:ms__array[".v:val."][v:val] : \"\"")'),s:mgridW,s:mgridH,s:ms__rows)
 					en
-					call s:printMapDisp()
+					call s:ms__displayfunc()
 				en
 			en
 		en
 		call feedkeys("\<plug>TxbY")
 	else
-		exe get(s:mapdict,a:c,'let s:ms.msg=" Press f1 for help or q to quit"')
-		if s:ms.continue==1
-			let [roffn,coffn]=[s:ms.r<s:ms.roff? s:ms.r : s:ms.r>=s:ms.roff+s:ms.rows? s:ms.r-s:ms.rows+1 : s:ms.roff,s:ms.c<s:ms.coff? s:ms.c : s:ms.c>=s:ms.coff+s:ms.cols? s:ms.c-s:ms.cols+1 : s:ms.coff]
-			if [s:ms.roff,s:ms.coff]!=[roffn,coffn] || s:ms.redr
-				let [s:ms.roff,s:ms.coff,s:ms.redr]=[roffn,coffn,0]
-				let s:ms.disp=s:getMapDisp(map(range(s:ms.coff,s:ms.coff+s:ms.cols-1),'map(range(s:ms.roff,s:ms.roff+s:ms.rows-1),"exists(\"s:ms.array[".v:val."][v:val]\")? s:ms.array[".v:val."][v:val] : \"\"")'),s:bksizes[t:txb.zoom][1],s:bksizes[t:txb.zoom][0],s:ms.rows)
+		exe get(s:mapdict,a:c,'let s:ms__msg=" Press f1 for help or q to quit"')
+		if s:ms__continue==1
+			let [roffn,coffn]=[s:ms__r<s:ms__roff? s:ms__r : s:ms__r>=s:ms__roff+s:ms__rows? s:ms__r-s:ms__rows+1 : s:ms__roff,s:ms__c<s:ms__coff? s:ms__c : s:ms__c>=s:ms__coff+s:ms__cols? s:ms__c-s:ms__cols+1 : s:ms__coff]
+			if [s:ms__roff,s:ms__coff]!=[roffn,coffn] || s:ms__redr
+				let [s:ms__roff,s:ms__coff,s:ms__redr]=[roffn,coffn,0]
+				call s:getMapDisp(map(range(s:ms__coff,s:ms__coff+s:ms__cols-1),'map(range(s:ms__roff,s:ms__roff+s:ms__rows-1),"exists(\"s:ms__array[".v:val."][v:val]\")? s:ms__array[".v:val."][v:val] : \"\"")'),s:mgridW,s:mgridH,s:ms__rows)
 			en
-			call s:printMapDisp()
+			call s:ms__displayfunc()
 			call feedkeys("\<plug>TxbY")
-		elseif s:ms.continue==2
-			let [&ch,&more,&ls,&stal]=s:ms.settings
-			cal s:gotoPos(s:ms.c,s:bgridL*s:ms.r)
+		elseif s:ms__continue==2
+			let [&ch,&more,&ls,&stal]=s:ms__settings
+			cal s:gotoPos(s:ms__c,s:bgridL*s:ms__r)
 		else
-			let [&ch,&more,&ls,&stal]=s:ms.settings
+			let [&ch,&more,&ls,&stal]=s:ms__settings
 		en
 	en
 endfun
 fun! s:navMap(array,c_ini,r_ini)
-	let settings=[&ch,&more,&ls,&stal]
-	let &ch=&lines
-	let s:ms={'prevclick':[0,0],'prevcoord':[0,0,0],'array':(a:array),'settings':settings,'msg':'','r':(a:r_ini),'c':(a:c_ini),'rows':(&ch-1)/s:bksizes[t:txb.zoom][0],'cols':(&columns-1)/s:bksizes[t:txb.zoom][1],'continue':1,'redr':1}
-	let s:ms.roff=max([s:ms.r-s:ms.rows/2,0])
-	let s:ms.coff=max([s:ms.c-s:ms.cols/2,0])
-	let [&more,&ls,&stal]=[0,0,0]
-   	let s:ms.disp=s:getMapDisp(map(range(s:ms.coff,s:ms.coff+s:ms.cols-1),'map(range(s:ms.roff,s:ms.roff+s:ms.rows-1),"exists(\"a:array[".v:val."][v:val]\")? a:array[".v:val."][v:val] : \"\"")'),s:bksizes[t:txb.zoom][1],s:bksizes[t:txb.zoom][0],s:ms.rows)
-	call s:printMapDisp()
+	let s:ms__settings=[&ch,&more,&ls,&stal]
+		let [&more,&ls,&stal]=[0,0,0]
+		let &ch=&lines
+	let s:ms__prevclick=[0,0]
+	let s:ms__prevcoord=[0,0,0]
+	let s:ms__array=a:array
+	let s:ms__msg=''
+	let s:ms__r=a:r_ini
+	let s:ms__c=a:c_ini
+	let s:ms__continue=1
+	let s:ms__redr=1
+	let s:ms__rows=(&ch-1)/s:mgridH
+	let s:ms__cols=(&columns-1)/s:mgridW
+	let s:ms__roff=max([s:ms__r-s:ms__rows/2,0])
+	let s:ms__coff=max([s:ms__c-s:ms__cols/2,0])
+	let s:ms__displayfunc=function('s:printMapDisp')
+   	call s:getMapDisp(map(range(s:ms__coff,s:ms__coff+s:ms__cols-1),'map(range(s:ms__roff,s:ms__roff+s:ms__rows-1),"exists(\"a:array[".v:val."][v:val]\")? a:array[".v:val."][v:val] : \"\"")'),s:mgridW,s:mgridH,s:ms__rows)
+	call s:ms__displayfunc()
 	let g:TXBkeyhandler=function("s:navMapKeyHandler")
 	call feedkeys("\<plug>TxbY")
 endfun
-let s:mapdict={"\e":"let s:ms.continue=0|redr",
+let s:mapdict={"\e":"let s:ms__continue=0|redr",
 \"\<f1>":'let width=&columns>80? min([&columns-10,80]) : &columns-2|cal input(s:formatPar("\n\n\\CKeyboard:
 \\nhjkl        Move cardinally
 \\nyubn        Move diagonally
 \\nx p         Cut block / Put block
 \\nc i         Change block
 \\ng <cr>      Goto block (and exit map)
-\\n+ -         Increase / decrease block size
 \\nI D         Insert / delete column
+\\nz           Adjust map block size
+\\nT           Toggle color
 \\nq           Quit
 \\n\\CMouse:
 \\ndoubleclick             Goto block
 \\ndrag                    Pan
-\\ntop left corner click   Quit
-\\n\nMouse clicks are associated with the very first letter of the label, so it might be helpful to prepend a marker to each label, eg, ''^ Chapter 1''
+\\nclick at topleft corner Quit
+\\ndrag to topleft corner  Show map
+\\n\nMouse clicks are associated with the very first letter of the label, so it might be helpful to prepend a marker, eg, ''+ Chapter 1'', so you can aim your mouse at the ''+''. To facilitate navigating with the mouse only, the map can be activated with a mouse drag that ends at the top left corner; it can be closed by a click at the top left corner.
+\\n\nMouse commands only work when ttymouse is set to xterm2 or sgr. When ttymouse is xterm, a limited set of features will work.
+\\n\nColor a label via the syntax ''label_text#highlightgroup''. For example, ''^ Danger!#WarningMsg'' should color the label bright red. If coloring is causing slowdowns or drawing issues, you can toggle it on and off with the T command.
 \\n\n\\C(Press enter to continue)",width,(&columns-width)/2))',
-\"j":"let s:ms.r+=1",
-\"q":"let s:ms.continue=0",
-\"jj":"let s:ms.r+=2",
-\"jjj":"let s:ms.r+=3",
-\"k":"let s:ms.r=s:ms.r>0? s:ms.r-1 : s:ms.r",
-\"kk":"let s:ms.r=s:ms.r>1? s:ms.r-2 : s:ms.r",
-\"kkk":"let s:ms.r=s:ms.r>2? s:ms.r-3 : s:ms.r",
-\"l":"let s:ms.c+=1",
-\"ll":"let s:ms.c+=2",
-\"lll":"let s:ms.c+=3",
-\"h":"let s:ms.c=s:ms.c>0? s:ms.c-1 : s:ms.c",
-\"hh":"let s:ms.c=s:ms.c>1? s:ms.c-2 : s:ms.c",
-\"hhh":"let s:ms.c=s:ms.c>2? s:ms.c-3 : s:ms.c",
-\"y":"let [s:ms.r,s:ms.c]=[s:ms.r>0? s:ms.r-1 : s:ms.r,s:ms.c>0? s:ms.c-1 : s:ms.c]",
-\"u":"let [s:ms.r,s:ms.c]=[s:ms.r>0? s:ms.r-1 : s:ms.r,s:ms.c+1]",
-\"b":"let [s:ms.r,s:ms.c]=[s:ms.r+1,s:ms.c>0? s:ms.c-1 : s:ms.c]",
-\"n":"let [s:ms.r,s:ms.c]=[s:ms.r+1,s:ms.c+1]",
-\"x":"if exists('s:ms.array[s:ms.c][s:ms.r]')|let @\"=s:ms.array[s:ms.c][s:ms.r]|let s:ms.array[s:ms.c][s:ms.r]=''|let s:ms.redr=1|en",
-\"p":"if s:ms.c>=len(s:ms.array)\n
-	\call extend(s:ms.array,eval('['.join(repeat(['[]'],s:ms.c+1-len(s:ms.array)),',').']'))\n
+\"j":"let s:ms__r+=1",
+\"q":"let s:ms__continue=0",
+\"jj":"let s:ms__r+=2",
+\"jjj":"let s:ms__r+=3",
+\"k":"let s:ms__r=s:ms__r>0? s:ms__r-1 : s:ms__r",
+\"kk":"let s:ms__r=s:ms__r>1? s:ms__r-2 : s:ms__r",
+\"kkk":"let s:ms__r=s:ms__r>2? s:ms__r-3 : s:ms__r",
+\"l":"let s:ms__c+=1",
+\"ll":"let s:ms__c+=2",
+\"lll":"let s:ms__c+=3",
+\"T":"let s:ms__displayfunc=s:ms__displayfunc==function('s:printMapDisp')? function('s:printMapDispNoHL') : function('s:printMapDisp')",
+\"h":"let s:ms__c=s:ms__c>0? s:ms__c-1 : s:ms__c",
+\"hh":"let s:ms__c=s:ms__c>1? s:ms__c-2 : s:ms__c",
+\"hhh":"let s:ms__c=s:ms__c>2? s:ms__c-3 : s:ms__c",
+\"y":"let [s:ms__r,s:ms__c]=[s:ms__r>0? s:ms__r-1 : s:ms__r,s:ms__c>0? s:ms__c-1 : s:ms__c]",
+\"u":"let [s:ms__r,s:ms__c]=[s:ms__r>0? s:ms__r-1 : s:ms__r,s:ms__c+1]",
+\"b":"let [s:ms__r,s:ms__c]=[s:ms__r+1,s:ms__c>0? s:ms__c-1 : s:ms__c]",
+\"n":"let [s:ms__r,s:ms__c]=[s:ms__r+1,s:ms__c+1]",
+\"x":"if exists('s:ms__array[s:ms__c][s:ms__r]')|let @\"=s:ms__array[s:ms__c][s:ms__r]|let s:ms__array[s:ms__c][s:ms__r]=''|let s:ms__redr=1|en",
+\"p":"if s:ms__c>=len(s:ms__array)\n
+	\call extend(s:ms__array,eval('['.join(repeat(['[]'],s:ms__c+1-len(s:ms__array)),',').']'))\n
 \en\n
-\if s:ms.r>=len(s:ms.array[s:ms.c])\n
-	\call extend(s:ms.array[s:ms.c],repeat([''],s:ms.r+1-len(s:ms.array[s:ms.c])))\n
+\if s:ms__r>=len(s:ms__array[s:ms__c])\n
+	\call extend(s:ms__array[s:ms__c],repeat([''],s:ms__r+1-len(s:ms__array[s:ms__c])))\n
 \en\n
-\let s:ms.array[s:ms.c][s:ms.r]=@\"\n
-\let s:ms.redr=1\n",
-\"c":"let input=input((s:ms.disp.str).\"\nChange: \",exists('s:ms.array[s:ms.c][s:ms.r]')? s:ms.array[s:ms.c][s:ms.r] : '')\n
+\let s:ms__array[s:ms__c][s:ms__r]=@\"\n
+\let s:ms__redr=1\n",
+\"c":"let input=input((s:disp__str).\"\nChange: \",exists('s:ms__array[s:ms__c][s:ms__r]')? s:ms__array[s:ms__c][s:ms__r] : '')\n
 \if !empty(input)\n
- 	\if s:ms.c>=len(s:ms.array)\n
-		\call extend(s:ms.array,eval('['.join(repeat(['[]'],s:ms.c+1-len(s:ms.array)),',').']'))\n
+ 	\if s:ms__c>=len(s:ms__array)\n
+		\call extend(s:ms__array,eval('['.join(repeat(['[]'],s:ms__c+1-len(s:ms__array)),',').']'))\n
 	\en\n
-	\if s:ms.r>=len(s:ms.array[s:ms.c])\n
-		\call extend(s:ms.array[s:ms.c],repeat([''],s:ms.r+1-len(s:ms.array[s:ms.c])))\n
+	\if s:ms__r>=len(s:ms__array[s:ms__c])\n
+		\call extend(s:ms__array[s:ms__c],repeat([''],s:ms__r+1-len(s:ms__array[s:ms__c])))\n
 	\en\n
-	\let s:ms.array[s:ms.c][s:ms.r]=strtrans(input)\n
-	\let s:ms.redr=1\n
+	\let s:ms__array[s:ms__c][s:ms__r]=strtrans(input)\n
+	\let s:ms__redr=1\n
 \en\n",
-\"g":'let s:ms.continue=2',
-\"+":'let t:txb.zoom=min([t:txb.zoom+1,len(s:bksizes)-1])|let [s:ms.redr,s:ms.rows,s:ms.cols]=[1,(&ch-1)/s:bksizes[t:txb.zoom][0],(&columns-1)/s:bksizes[t:txb.zoom][1]]',
-\"-":'let t:txb.zoom=max([t:txb.zoom-1,1])|let [s:ms.redr,s:ms.rows,s:ms.cols]=[1,(&ch-1)/s:bksizes[t:txb.zoom][0],(&columns-1)/s:bksizes[t:txb.zoom][1]]',
-\"I":'if s:ms.c<len(s:ms.array)|call insert(s:ms.array,[],s:ms.c)|let s:ms.redr=1|let s:ms.msg="Col ".(s:ms.c)." inserted"|en',
-\"D":'if s:ms.c<len(s:ms.array) && input(s:ms.disp.str."\nReally delete column? (y/n)")==?"y"|call remove(s:ms.array,s:ms.c)|let s:ms.redr=1|let s:ms.msg="Col ".(s:ms.c)." deleted"|en'}
+\"g":'let s:ms__continue=2',
+\"z":'let s:mgridW=min([10,max([1,input(s:disp__str."\nBlock width (1-10): ",s:mgridW)])])|let s:mgridH=min([10,max([1,input("\nBlock height (1-10): ",s:mgridH)])])|let [s:ms__redr,s:ms__rows,s:ms__cols]=[1,(&ch-1)/s:mgridH,(&columns-1)/s:mgridW]',
+\"I":'if s:ms__c<len(s:ms__array)|call insert(s:ms__array,[],s:ms__c)|let s:ms__redr=1|let s:ms__msg="Col ".(s:ms__c)." inserted"|en',
+\"D":'if s:ms__c<len(s:ms__array) && input(s:disp__str."\nReally delete column? (y/n)")==?"y"|call remove(s:ms__array,s:ms__c)|let s:ms__redr=1|let s:ms__msg="Col ".(s:ms__c)." deleted"|en'}
 let s:mapdict.i=s:mapdict.c
 let s:mapdict["\<c-m>"]=s:mapdict.g
 
@@ -691,17 +782,13 @@ endfun
 	let TXBkyCmd["\<c-j>"]='cal s:gotoGridCorners( 0, 1)|let s:cmdS.possav=s:saveCursPos()'
 	let TXBkyCmd["\<c-k>"]='cal s:gotoGridCorners( 0,-1)|let s:cmdS.possav=s:saveCursPos()'
 
-fun! s:getMapGrid()
-	return [t:txb.ix[expand('%')],line('.')/s:bgridL]
-endfun
-fun! s:snapToCursorGrid()
+fun! s:snapToGrid()
 	let [ix,l0]=[t:txb.ix[expand('%')],line('.')]
  	let [x,dir]=winnr()>ix%s:bgridS+1? [ix-ix%s:bgridS,1] : winnr()==ix%s:bgridS+1 && t:txb.size[ix-ix%s:bgridS]<=winwidth(1)? [0,0] : [ix-ix%s:bgridS,-1]
-	"exe PRINT('ix|l0|x|dir')
 	call s:blockPan(x,l0-l0%s:bgridL,dir)
 endfun
-	let TXBkyCmd['.']='let s:cmdS.possav=saveCursPos()|call s:snapToCursorGrid()|let s:cmdS.continue=0'
-	let TXBkyCmd['.']='call s:snapToCursorGrid()|let s:cmdS.continue=0'
+	let TXBkyCmd['.']='let s:cmdS.possav=saveCursPos()|call s:snapToGrid()|let s:cmdS.continue=0'
+	let TXBkyCmd['.']='call s:snapToGrid()|let s:cmdS.continue=0'
 
 nmap <silent> <plug>TxbY<esc>[ :call <SID>getmouse()<cr>
 nmap <silent> <plug>TxbY :call <SID>getchar()<cr>
@@ -885,7 +972,6 @@ fun! s:makePlane(name,...)
 		let plane.size=exists("a:1")? a:1 : repeat([60],plane.len)
 		let plane.exe=exists("a:2")? a:2 : repeat(['se scb cole=2 nowrap'],plane.len)
 		let plane.scrollopt='ver,jump'
-		let plane.zoom=min([2,len(s:bksizes)])
 		let [plane.ix,i]=[{},0]
 		let plane.map=[[]]
 		for e in plane.name
@@ -1056,8 +1142,8 @@ fun! s:restoreCursPos(possav)
 	en
 endfun
 
-fun! s:PanLeft(N,...)
-	let alignmentcmd="norm! ".(a:0? a:1 : line('w0'))."zt"
+fun! s:PanLeft(N)
+	let alignmentcmd="norm! ".line('w0')."zt"
 	let [extrashift,tcol]=[0,get(t:txb.ix,bufname(winbufnr(1)),-1)]
 	if tcol<0
 		throw bufname(winbufnr(1))." not contained in current plane: ".string(t:txb.name)
@@ -1147,8 +1233,8 @@ fun! s:PanLeft(N,...)
 	return extrashift
 endfun
 
-fun! s:PanRight(N,...)
-	let alignmentcmd="norm! ".(a:0? a:1 : line('w0'))."zt"
+fun! s:PanRight(N)
+	let alignmentcmd="norm! ".line('w0')."zt"
 	let tcol=get(t:txb.ix,bufname(winbufnr(1)),-1)
 	let [bcol,loff,extrashift,N]=[get(t:txb.ix,bufname(winbufnr(winnr('$'))),-1),winwidth(1)==&columns? (&wrap? (t:txb.size[tcol]>&columns? t:txb.size[tcol]-&columns+1 : 0) : virtcol('.')-wincol()) : (t:txb.size[tcol]>winwidth(1)? t:txb.size[tcol]-winwidth(1) : 0),0,a:N]
 	let nobotresize=0
