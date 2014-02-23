@@ -1,10 +1,8 @@
 This is a mirror of http://www.vim.org/scripts/script.php?script_id=4835
 
-A pannable, zoomable 2D text plane for working on a lifetime's worth of prose. Navigate with the mouse, keyboard, or via a map.
-
-Check out the youtube video: http://www.youtube.com/watch?v=QTIaI_kI_X8
-Most up to date version at: https://github.com/q335r49/textabyss
-
-Even as memory capacity grows exponentially, memory organization, especially when it comes to prose, seems quite underdeveloped. Text production even on the order of kilobytes per year may seem quite unmanageable. You may have hundreds or thousands of pages sitting in mysteriously named folders on old hard drives. There are various efforts to remedy this situation, including desktop indexing and personal wikis. It might not even be a bad idea to print out and keep as a hard copy everything written over the course of a month. 
-
-The textabyss is yet another solution. It presents a plane that one can append to endlessly with very little overhead. It provides means to navigate and, either at the moment of writing or retrospectively, map out this plane. Ideally, you would be able to scan over the map and easily access writings from last night, a month ago, or even 5 or 10 years earlier. It presents some unique advantages over indexing, hyperlinking, and hierarchical organizing.
+The idea behind textabyss is simple: a pannable, zoomable, and expandable plane for working on large amounts of text.
+* It is primarily intended as an archive for prose, but it also works well for note taking, planning out projects, taking margin notes, and brainstorming.
+* It supports both mouse and keyboard.
+* It features a color map
+* It is hosted at https://github.com/q335r49/textabyss
+* Check out the youtube video; http://www.youtube.com/watch?v=xkED6Mv_4bc
