@@ -42,21 +42,28 @@ if exists('s:option_remap_G_gg') && s:option_remap_G_gg==1
 	unlet s:option_remap_G_gg
 endif
 
-augroup TXB
-	au!
-	if v:version > 703 || v:version==703 && has("patch748")
-		au VimResized * if exists('t:txb') | call <SID>centerCursor(screenrow(),screencol()) | en
-	else
-		au VimResized * if exists('t:txb') | call <SID>centerCursor(winline(),eval(join(map(range(1,winnr()-1),'winwidth(v:val)'),'+').'+winnr()-1+wincol()')) | en
-	en
-augroup END
-fun! <SID>centerCursor(row,col)
-	let restoreView='norm! '.virtcol('.').'|'
-	call s:redraw()
-	call s:nav(a:col/2-&columns/4)
-	let dy=&lines/4-a:row/2
-	exe dy>0? restoreView.dy."\<c-y>" : dy<0? restoreView.(-dy)."\<c-e>" : restoreView
-endfun
+if !has("gui_running")
+	fun! <SID>centerCursor(row,col)
+		let restoreView='norm! '.virtcol('.').'|'
+		call s:redraw()
+		call s:nav(a:col/2-&columns/4)
+		let dy=&lines/4-a:row/2
+		exe dy>0? restoreView.dy."\<c-y>" : dy<0? restoreView.(-dy)."\<c-e>" : restoreView
+	endfun
+	augroup TXB
+		au!
+		if v:version > 703 || v:version==703 && has("patch748")
+			au VimResized * if exists('t:txb') | call <SID>centerCursor(screenrow(),screencol()) | en
+		else
+			au VimResized * if exists('t:txb') | call <SID>centerCursor(winline(),eval(join(map(range(1,winnr()-1),'winwidth(v:val)'),'+').'+winnr()-1+wincol()')) | en
+		en
+	augroup END
+else
+	augroup TXB
+		au!
+		au VimEnter * set wiw=1
+	augroup END
+en
 
 let TXBmsCmd={}
 let TXBkyCmd={}
@@ -175,7 +182,8 @@ fun! TXBinit(seed)
 			let confirm_keys=[10,13]
 		en
 	else
-		throw "Argument must be dictionary {'name':[list of files], ... } or string filepattern"
+		echoerr "Argument must be dictionary {'name':[list of files], ... } or string filepattern"
+		return 1
 	en
 	if !empty(plane.name) || !empty(filtered)
 		if !exists('plane.size')
@@ -250,7 +258,8 @@ fun! s:anchor(interactive)
 				let insertions=line-mark
 				if prevnonblank(line-1)>=mark
 					let &cul=cul
-					throw "Not enough blank lines to restore current marker!"
+					echoerr "Not enough blank lines to restore current marker!"
+					return 1
 				elseif input('Remove '.insertions.' blank lines here (y/n)?','y')==?'y'
 					exe 'norm! kd'.(insertions==1? 'd' : (insertions-1).'k')
 				en
@@ -266,7 +275,8 @@ fun! s:anchor(interactive)
 			if mark<line && mark>=0
 				let insertions=line-mark
 				if prevnonblank(line-1)>=mark
-					throw "Not enough blank lines to restore current marker!"
+					echoerr "Not enough blank lines to restore current marker!"
+					return 1
 				else
 					exe 'norm! kd'.(insertions==1? 'd' : (insertions-1).'k')
 				en
@@ -287,7 +297,7 @@ fun! s:initDragDefault()
 		let [c,w0]=[getchar(),-1]
 		if c!="\<leftdrag>"
 			call s:updateCursPos()
-			let s0=t:txb__ix[bufname(winbufnr(v:mouse_win)]
+			let s0=t:txb__ix[bufname(winbufnr(v:mouse_win))]
 			let t_r=v:mouse_lnum/s:mapL
 			echon s:gridnames[s0] t_r ' ' get(get(t:txb.map,s0,[]),t_r,'')[:&columns-9]
 			return "keepj norm! \<leftmouse>"
@@ -1181,7 +1191,7 @@ let TXBkyCmd.D="redr\n
 let TXBkyCmd.A="let ix=get(t:txb__ix,expand('%'),-1)\n
 \if ix!=-1\n
 	\redr\n
-	\let file=input(' < File to append : ',substitute(bufname('%'),'\\d\\+','\\=(\"000000\".(str2nr(submatch(0))+1))[-len(submatch(0)):]',''),'file')\n
+	\let file=input(' < File to append (do not escape spaces): ',substitute(bufname('%'),'\\d\\+','\\=(\"00000000\".(str2nr(submatch(0))+1))[-len(submatch(0)):]',''),'file')\n
 	\let error=s:appendSplit(ix,file)\n
 	\if empty(error)\n
 		\try\n
@@ -1351,9 +1361,9 @@ fun! s:redraw()
 	try
 	exe "silent norm! :syncbind\<cr>"
 	catch
-		let &scrollopt=''
+		se scrollopt=jump
 		windo 1
-		let &scrollopt='ver,jump'
+		se scrollopt=ver,jump
 	endtry
 	exe "norm!" bufwinnr(pos[0])."\<c-w>w".pos[1]."zt`t"
 	if len(s:gridnames)<t:txb__len
@@ -1362,29 +1372,29 @@ fun! s:redraw()
 endfun
 
 fun! s:saveCursPos()
-	let s:cPos=[bufnr('%'),line('.'),virtcol('.')]
+	let t:txb__cPos=[bufnr('%'),line('.'),virtcol('.')]
 endfun
 fun! s:updateCursPos(...)
     let default_scrolloff=a:0? a:1 : 0
-	let win=bufwinnr(s:cPos[0])
+	let win=bufwinnr(t:txb__cPos[0])
 	if win!=-1
 		if winnr('$')==1 || win==1
 			winc t
 			let offset=virtcol('.')-wincol()+1
 			let width=offset+winwidth(0)-3
-			exe 'norm! '.(s:cPos[1]<line('w0')? 'H' : line('w$')<s:cPos[1]? 'L' : s:cPos[1].'G').(s:cPos[2]<offset? offset : width<=s:cPos[2]? width : s:cPos[2]).'|'
+			exe 'norm! '.(t:txb__cPos[1]<line('w0')? 'H' : line('w$')<t:txb__cPos[1]? 'L' : t:txb__cPos[1].'G').(t:txb__cPos[2]<offset? offset : width<=t:txb__cPos[2]? width : t:txb__cPos[2]).'|'
 		elseif win!=1
 			exe win.'winc w'
-			exe 'norm! '.(s:cPos[1]<line('w0')? 'H' : line('w$')<s:cPos[1]? 'L' : s:cPos[1].'G').(s:cPos[2]>winwidth(win)? '0g$' : s:cPos[2].'|')
+			exe 'norm! '.(t:txb__cPos[1]<line('w0')? 'H' : line('w$')<t:txb__cPos[1]? 'L' : t:txb__cPos[1].'G').(t:txb__cPos[2]>winwidth(win)? '0g$' : t:txb__cPos[2].'|')
 		en
-	elseif default_scrolloff==1 || !default_scrolloff && t:txb__ix[bufname(s:cPos[0])]>t:txb__ix[bufname('')]
+	elseif default_scrolloff==1 || !default_scrolloff && t:txb__ix[bufname(t:txb__cPos[0])]>t:txb__ix[bufname('')]
 		winc b
-		exe 'norm! '.(s:cPos[1]<line('w0')? 'H' : line('w$')<s:cPos[1]? 'L' : s:cPos[1].'G').(winnr('$')==1? 'g$' : '0g$')
+		exe 'norm! '.(t:txb__cPos[1]<line('w0')? 'H' : line('w$')<t:txb__cPos[1]? 'L' : t:txb__cPos[1].'G').(winnr('$')==1? 'g$' : '0g$')
 	else
 		winc t
-		exe "norm! ".(s:cPos[1]<line('w0')? 'H' : line('w$')<s:cPos[1]? 'L' : s:cPos[1].'G').'g0'
+		exe "norm! ".(t:txb__cPos[1]<line('w0')? 'H' : line('w$')<t:txb__cPos[1]? 'L' : t:txb__cPos[1].'G').'g0'
 	en
-	let s:cPos=[bufnr('%'),line('.'),virtcol('.')]
+	let t:txb__cPos=[bufnr('%'),line('.'),virtcol('.')]
 endfun
 
 fun! s:nav(N)
@@ -1406,7 +1416,8 @@ fun! s:nav(N)
 			only
 		en
 		if winwidth(0)!=&columns
-			wincmd t	
+			wincmd t
+			let topw=winwidth(0)
 			if winwidth(winnr('$'))<=N+3+extrashift || winnr('$')>=9
 				se nowfw
 				wincmd b
@@ -1420,7 +1431,7 @@ fun! s:nav(N)
 					wincmd l
 					se wfw
 					wincmd t
-				else
+				elseif winwidth(0)==topw
 					exe 'vert res+'.(N+extrashift)
 				en
 				se wfw
