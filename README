@@ -1,8 +1,7 @@
 This is a mirror of http://www.vim.org/scripts/script.php?script_id=4835
 
-The idea behind textabyss is simple: a pannable, zoomable, and expandable plane for working on large amounts of text.
-* It is primarily intended as an archive for prose, but it also works well for note taking, planning out projects, taking margin notes, and brainstorming.
-* It supports both mouse and keyboard.
-* It features a color map
-* It is hosted at https://github.com/q335r49/textabyss
-* Check out the youtube video; http://www.youtube.com/watch?v=xkED6Mv_4bc
+Textabyss lets you pan and zoom through massive text archives
+... and has great mouse support,
+... automatic mapping,
+... a youtube demo (http://www.youtube.com/watch?v=xkED6Mv_4bc),
+... and a github site (https://github.com/q335r49/textabyss)!
